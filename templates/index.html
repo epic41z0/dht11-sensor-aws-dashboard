@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            margin: 20px 0;
+            color: #333;
+        }
+        .chart-container {
+            margin: 20px auto;
+            max-width: 800px;
+        }
+        .latest-value {
+            font-size: 1.2em;
+            margin: 10px 0;
+            color: #444;
+        }
+        canvas {
+            max-width: 800px;
+            max-height: 400px;
+            display: block;
+            margin: 0 auto;
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>Live Temperature and Humidity Dashboard</h1>
+
+    <!-- Temperatur Chart -->
+    <div class="chart-container">
+        <div id="latestTemperature" class="latest-value">Latest Temperature: -- °C</div>
+        <canvas id="temperatureChart" width="800" height="400"></canvas>
+    </div>
+
+    <!-- Humidity Chart -->
+    <div class="chart-container">
+        <div id="latestHumidity" class="latest-value">Latest Humidity: -- %</div>
+        <canvas id="humidityChart" width="800" height="400"></canvas>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const apiUrl = '/data'; // API endpoint
+        let temperatureChart, humidityChart;
+        let lastTimestamp = null; // För att spåra senaste uppdateringstidsstämpel
+
+        // Initiera diagram (skapa dem endast en gång)
+        function initializeCharts() {
+            const tempCtx = document.getElementById('temperatureChart').getContext('2d');
+            temperatureChart = new Chart(tempCtx, {
+                type: 'line',
+                data: {
+                    labels: [], // Tidsstämplar
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: [], // Temperaturvärden
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        fill: true,
+                        tension: 0.4, // Släta linjer
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Timestamp' },
+                            grid: { color: 'rgba(200, 200, 200, 0.3)' },
+                        },
+                        y: {
+                            title: { display: true, text: 'Temperature (°C)' },
+                            grid: { color: 'rgba(200, 200, 200, 0.3)' },
+                        }
+                    }
+                }
+            });
+
+            const humCtx = document.getElementById('humidityChart').getContext('2d');
+            humidityChart = new Chart(humCtx, {
+                type: 'line',
+                data: {
+                    labels: [], // Tidsstämplar
+                    datasets: [{
+                        label: 'Humidity (%)',
+                        data: [], // Fuktighetsvärden
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        fill: true,
+                        tension: 0.4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Timestamp' },
+                            grid: { color: 'rgba(200, 200, 200, 0.3)' },
+                        },
+                        y: {
+                            title: { display: true, text: 'Humidity (%)' },
+                            grid: { color: 'rgba(200, 200, 200, 0.3)' },
+                        }
+                    }
+                }
+            });
+        }
+
+        // Uppdatera befintliga diagram och visa senaste värden
+        function updateCharts(data) {
+    console.log("Updating charts with data:", data);
+
+    // Använd timestamp direkt som etiketter
+    const labels = data.map(item => item.timestamp || "Unknown Time");
+
+    // Hämta temperatur och fuktighet
+    const temperatureData = data.map(item => {
+        if (item.payload && item.payload.temperature !== undefined) {
+            return parseFloat(item.payload.temperature); // Från payload
+        } else if (item.temperature !== undefined) {
+            return parseFloat(item.temperature); // Direkt på toppnivå
+        } else {
+            console.warn("Missing temperature data for item:", item);
+            return 0; // Standardvärde
+        }
+    });
+
+    const humidityData = data.map(item => {
+        if (item.payload && item.payload.humidity !== undefined) {
+            return parseFloat(item.payload.humidity); // Från payload
+        } else if (item.humidity !== undefined) {
+            return parseFloat(item.humidity); // Direkt på toppnivå
+        } else {
+            console.warn("Missing humidity data for item:", item);
+            return 0; // Standardvärde
+        }
+    });
+
+    // Rensa diagrammen
+    temperatureChart.data.labels = [];
+    temperatureChart.data.datasets[0].data = [];
+
+    humidityChart.data.labels = [];
+    humidityChart.data.datasets[0].data = [];
+
+    // Lägg till nya värden i diagrammen
+    temperatureChart.data.labels.push(...labels);
+    temperatureChart.data.datasets[0].data.push(...temperatureData);
+    temperatureChart.update();
+
+    humidityChart.data.labels.push(...labels);
+    humidityChart.data.datasets[0].data.push(...humidityData);
+    humidityChart.update();
+
+    // Hämta senaste värden
+    const latestData = data[data.length - 1]; // Hämta senaste posten
+    let latestTemperature = null;
+    let latestHumidity = null;
+
+    if (latestData) {
+        if (latestData.payload) {
+            latestTemperature = latestData.payload.temperature
+                ? parseFloat(latestData.payload.temperature)
+                : null;
+            latestHumidity = latestData.payload.humidity
+                ? parseFloat(latestData.payload.humidity)
+                : null;
+        } else {
+            latestTemperature = latestData.temperature
+                ? parseFloat(latestData.temperature)
+                : null;
+            latestHumidity = latestData.humidity
+                ? parseFloat(latestData.humidity)
+                : null;
+        }
+    }
+
+    // Visa senaste värden
+    if (latestTemperature !== null) {
+        document.getElementById('latestTemperature').textContent = `Latest Temperature: ${latestTemperature.toFixed(1)} °C`;
+    } else {
+        document.getElementById('latestTemperature').textContent = `Latest Temperature: -- °C`;
+    }
+
+    if (latestHumidity !== null) {
+        document.getElementById('latestHumidity').textContent = `Latest Humidity: ${latestHumidity.toFixed(1)} %`;
+    } else {
+        document.getElementById('latestHumidity').textContent = `Latest Humidity: -- %`;
+    }
+}
+
+async function fetchDataAndUpdateCharts() {
+    try {
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+
+        console.log("Fetched data:", data);
+
+        // Logga varje objekt för felsökning
+        console.log("Logging each item in data:");
+        data.forEach((item, index) => {
+            console.log(`Item ${index}:`, item);
+        });
+
+        // Uppdatera endast om ny data finns
+        if (data.length > 0) {
+            const latestTimestamp = data[0].timestamp; // Anta att den senaste posten är först
+
+            // Jämför tidsstämpel för ny data
+            if (latestTimestamp !== lastTimestamp) {
+                lastTimestamp = latestTimestamp; // Uppdatera senaste timestamp
+                updateCharts(data); // Uppdatera diagrammen
+            } else {
+                console.log("No new data detected.");
+            }
+        } else {
+            console.log("Empty response from API.");
+        }
+    } catch (error) {
+        console.error('Error fetching or updating data:', error);
+    }
+}
+
+// Initiera diagram och starta realtidsuppdatering
+window.onload = function () {
+    initializeCharts(); // Skapa diagrammen en gång
+    fetchDataAndUpdateCharts(); // Ladda första datan
+
+    // Uppdatera var 5:e sekund
+    setInterval(fetchDataAndUpdateCharts, 5000);
+};
+    </script>
+</body>
+</html>
