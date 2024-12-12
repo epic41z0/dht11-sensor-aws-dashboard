@@ -54,7 +54,7 @@ To configure the ESP32 to read data from the DHT11 sensor and send it to AWS IoT
    - `NTPClient.h`: Fetches the current time from an NTP server.
 3. Connect the DHT11 sensor to the ESP32 as shown in the diagram below:
 
-   ![DHT11 to ESP32 Wiring](images/dht22ESP32bild.png)
+   ![DHT11 to ESP32 Wiring](images/dht22ESP32bild.PNG)
 
 4. Copy and paste the ESP32 code from `main.cpp` into Arduino IDE.
 5. Update `secrets.h` with your AWS IoT credentials and Wi-Fi details:
